@@ -28,13 +28,9 @@ export type AnalyticsSnapshot = {
   buckets: Record<string, number>;
   outlierCount: number;
   volatilityPhase: "stable" | "volatile" | "chaotic";
-};
-
-export type AiInsight = {
-  signal_strength: "low" | "medium" | "high";
-  market_phase?: "stable" | "volatile" | "chaotic";
-  insight: string;
-  confidence: number;
-  range_estimate?: [number, number];
-  next_round_prob?: string;
+  probAbove2x: number;
+  p25: number;
+  p50: number;
+  p75: number;
+  p90: number;
 };

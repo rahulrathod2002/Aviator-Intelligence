@@ -50,6 +50,13 @@ function buckets(values: number[]) {
   );
 }
 
+function percentile(values: number[], p: number) {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const idx = Math.min(sorted.length - 1, Math.max(0, Math.round((p / 100) * (sorted.length - 1))));
+  return sorted[idx];
+}
+
 export function computeAnalytics(points: MultiplierPoint[]): AnalyticsSnapshot {
   const values = points.map((p) => p.smoothed);
   const { filtered, outliers } = iqrFilter(values);
@@ -60,6 +67,12 @@ export function computeAnalytics(points: MultiplierPoint[]): AnalyticsSnapshot {
   const streakHigh = streak(points, (p) => p.smoothed > 5);
   const momentum = rollingMedian50 > rollingMedian100 + 0.1 ? "rising" : rollingMedian50 < rollingMedian100 - 0.1 ? "falling" : "flat";
   const volatilityPhase = volatility < 2 ? "stable" : volatility < 6 ? "volatile" : "chaotic";
+  const lastWindow = filtered.slice(-100);
+  const probAbove2x = lastWindow.length ? lastWindow.filter((v) => v >= 2).length / lastWindow.length : 0;
+  const p25 = percentile(lastWindow, 25);
+  const p50 = percentile(lastWindow, 50);
+  const p75 = percentile(lastWindow, 75);
+  const p90 = percentile(lastWindow, 90);
 
   return {
     rollingMedian50,
@@ -70,7 +83,12 @@ export function computeAnalytics(points: MultiplierPoint[]): AnalyticsSnapshot {
     momentum,
     buckets: buckets(filtered),
     outlierCount: outliers,
-    volatilityPhase
+    volatilityPhase,
+    probAbove2x,
+    p25,
+    p50,
+    p75,
+    p90
   };
 }
 

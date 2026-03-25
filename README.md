@@ -30,6 +30,8 @@ On first run, `npm run dev` will:
 - create `capture/.venv` and install Python requirements
 - start the React frontend and Python capture service
 
+On later runs, it will only re-install Python requirements if `capture/requirements.txt` has changed.
+
 Open the UI at:
 
 ```bash
@@ -41,6 +43,8 @@ WebSocket stream runs on:
 ```bash
 ws://localhost:8765
 ```
+
+If port 8765 is busy, the capture service auto-increments to 8766-8769. The frontend will automatically cycle through these ports.
 
 ### Manual (Optional)
 
@@ -89,6 +93,18 @@ debug_roi = True
 ## AI Insights (Optional)
 
 Paste your Groq API key into the UI input field. It is stored in localStorage under the key `groq_api_key`. AI insights are probabilistic only and are never presented as deterministic predictions.
+
+If browser-side Groq requests are blocked by CORS, the capture service will automatically send AI insights via WebSocket when the key is set.
+
+## ADB Authorization
+
+If `adb devices` shows `unauthorized`, unlock the phone and accept the USB debugging prompt. If no prompt appears, revoke USB debugging authorizations in Developer Options, unplug/replug, then run:
+
+```bash
+adb kill-server
+adb start-server
+adb devices
+```
 
 ## Performance Notes
 

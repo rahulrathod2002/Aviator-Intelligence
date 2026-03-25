@@ -1,37 +1,29 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { AnalyticsSnapshot, AiInsight, MultiplierPoint, OcrDebug } from "../types";
+import type { AnalyticsSnapshot, MultiplierPoint, OcrDebug } from "../types";
 import { computeAnalytics, markOutliers } from "../lib/analytics";
 import { loadRecentPoints, storePoints } from "../lib/storage";
 
-const WS_URL = "ws://localhost:8765";
+const WS_PORTS = [8765, 8766, 8767, 8768, 8769];
 const MAX_POINTS = 300;
 
 type StreamState = {
   points: MultiplierPoint[];
   analytics: AnalyticsSnapshot | null;
-  aiInsight: AiInsight | null;
-  aiStatus: "idle" | "missing_key" | "error" | "waiting" | "live";
   status: "connecting" | "live" | "offline";
   ocrDebug: OcrDebug | null;
-  roundsCount?: { count: number; required: number };
 };
 
 export function useCaptureStream() {
   const [state, setState] = useState<StreamState>({
     points: [],
     analytics: null,
-    aiInsight: null,
-    aiStatus: "idle",
     status: "connecting",
-    ocrDebug: null,
-    roundsCount: { count: 0, required: 5 }
+    ocrDebug: null
   });
   const retryRef = useRef<number>();
   const retryDelayRef = useRef(800);
   const socketRef = useRef<WebSocket | null>(null);
-  const pendingKeyRef = useRef<string | null>(null);
-  const lastAiAtRef = useRef<number | null>(null);
-  const [lastAiAt, setLastAiAt] = useState<number | null>(null);
+  const portIndexRef = useRef(0);
 
   useEffect(() => {
     let active = true;
@@ -62,28 +54,16 @@ export function useCaptureStream() {
       });
 
     const connect = () => {
-      socket = new WebSocket(WS_URL);
+      const port = WS_PORTS[portIndexRef.current % WS_PORTS.length];
+      socket = new WebSocket(`ws://localhost:${port}`);
       socketRef.current = socket;
       socket.onopen = () => {
         if (!active) return;
         retryDelayRef.current = 800;
         setState((current) => ({ ...current, status: "live" }));
-        if (pendingKeyRef.current) {
-          socket?.send(JSON.stringify({ type: "groq_key", key: pendingKeyRef.current }));
-        }
       };
       socket.onmessage = (event) => {
         const payload = JSON.parse(event.data);
-        if (payload.type === "rounds_count") {
-          setState((current) => ({ ...current, roundsCount: { count: payload.count, required: payload.required } }));
-          return;
-        }
-        if (payload.type === "ai_insight" && payload.value) {
-          lastAiAtRef.current = payload.timestamp ?? Date.now();
-          setLastAiAt(lastAiAtRef.current);
-          setState((current) => ({ ...current, aiInsight: payload.value as AiInsight, aiStatus: "live" }));
-          return;
-        }
         if (payload.type !== "multiplier") return;
         const nextPoint: MultiplierPoint = {
           value: payload.value,
@@ -124,6 +104,7 @@ export function useCaptureStream() {
         setState((current) => ({ ...current, status: "offline" }));
         const delay = retryDelayRef.current;
         retryDelayRef.current = Math.min(delay * 1.4, 5000);
+        portIndexRef.current += 1;
         retryRef.current = window.setTimeout(connect, delay);
       };
     };
@@ -137,17 +118,5 @@ export function useCaptureStream() {
     };
   }, []);
 
-  const sendGroqKey = (key: string) => {
-    const trimmed = key.trim();
-    pendingKeyRef.current = trimmed || null;
-    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-      socketRef.current.send(JSON.stringify({ type: "groq_key", key: trimmed }));
-    }
-    setState((current) => ({
-      ...current,
-      aiStatus: trimmed ? "waiting" : "missing_key"
-    }));
-  };
-
-  return useMemo(() => ({ ...state, sendGroqKey, lastAiAt }), [state, lastAiAt]);
+  return useMemo(() => ({ ...state }), [state]);
 }

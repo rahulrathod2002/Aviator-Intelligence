@@ -17,6 +17,7 @@ class Config:
     auto_roi_on_miss: bool = True
     auto_roi_cooldown_sec: int = 5
     auto_roi_scan_sec: int = 10
+    smoothing_window: int = 5
     
     # Color thresholds (HSV)
     white_v_min: int = 190 # Higher value for white
