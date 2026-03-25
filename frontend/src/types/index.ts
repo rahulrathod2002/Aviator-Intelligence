@@ -1,36 +1,45 @@
-export type GameState = "idle" | "waiting" | "flying" | "crashed";
+export type RoundState = "WAITING" | "FLYING" | "CRASHED";
 
-export type MultiplierPoint = {
-  value: number;
-  timestamp: number;
-  confidence: number;
-  smoothed: number;
-  isOutlier: boolean;
-  state?: GameState;
-  roundMax?: number;
+export type RoundView = {
+  round_id: string;
+  state: RoundState;
+  multiplier: number | null;
+  timestamp: string | null;
+  source: string | null;
 };
 
-export type OcrDebug = {
-  rawText: string;
+export type ProbabilityView = {
+  label: string;
+  probability_score: number;
   confidence: number;
-  roi?: { x: number; y: number; w: number; h: number };
-  timestamp: number;
-  engine?: string;
-};
-
-export type AnalyticsSnapshot = {
-  rollingMedian50: number;
-  rollingMedian100: number;
-  volatility: number;
-  streakLow: number;
-  streakHigh: number;
-  momentum: "rising" | "falling" | "flat";
+  rolling_median: number;
+  volatility_index: number;
+  low_streak: number;
+  high_streak: number;
   buckets: Record<string, number>;
-  outlierCount: number;
-  volatilityPhase: "stable" | "volatile" | "chaotic";
-  probAbove2x: number;
-  p25: number;
-  p50: number;
-  p75: number;
-  p90: number;
+};
+
+export type RecentRound = {
+  timestamp: string;
+  round_id: string;
+  multiplier: number;
+  state: RoundState;
+  source: string;
+};
+
+export type StreamPayload = {
+  status: "LIVE" | "NO_SIGNAL";
+  source: "Connected via ADB" | "Connected via Browser" | "No Signal";
+  state: RoundState;
+  multiplier: number | null;
+  confidence: number;
+  current_round: RoundView;
+  previous_round: RoundView;
+  next_round: ProbabilityView;
+  recent_rounds: RecentRound[];
+  ocr: {
+    raw_text: string;
+    engine: string;
+    color: string;
+  };
 };

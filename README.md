@@ -1,54 +1,69 @@
-# Aviator Real-Time Analytics Platform
+# Aviator Intelligence
 
-High-accuracy crash-game monitoring built for local, low-latency workflows. The system captures live frames from an Android device over ADB, extracts multiplier values with OCR, streams them via WebSocket, and renders real-time analytics in a React dashboard. All logic and storage live in the browser (IndexedDB + localStorage). No backend or database required.
+Real-time Aviator analytics platform with a Python backend and a React frontend.
 
-## Architecture
+## Folder Structure
 
-- `capture`: Python ADB + OCR pipeline with reconnect logic, ROI preprocessing, retry handling, and WebSocket broadcast.
-- `frontend`: React + Tailwind dashboard with live charts, analytics panels, AI insight, and local storage.
+```text
+.
+├── backend
+│   ├── analytics
+│   ├── ocr
+│   ├── services
+│   ├── sources
+│   ├── storage
+│   ├── app.py
+│   ├── config.py
+│   ├── main.py
+│   ├── models.py
+│   └── requirements.txt
+├── data
+│   └── rounds.csv
+└── frontend
+    ├── src
+    ├── index.html
+    ├── package.json
+    ├── tailwind.config.js
+    └── vite.config.ts
+```
 
-## Prerequisites
+## What Changed
 
-- Node.js 20+
+- All Python runtime logic now lives under `backend/`.
+- `backend/main.py` is the single backend entry point.
+- Browser storage has been removed completely.
+- Historical round storage now lives in `data/rounds.csv`.
+- The frontend consumes backend WebSocket data only.
+- Input failover now follows this priority:
+  1. ADB device
+  2. Browser capture
+  3. `No Signal`
+
+## Requirements
+
 - Python 3.11+
-- Android Debug Bridge (`adb`) in PATH
-- Optional: Tesseract installed locally for OCR fallback
-- Optional: Groq API key for AI insights
+- Node.js 20+
+- `adb` available in `PATH` for primary capture
+- Optional: Tesseract in `PATH` for OCR fallback
+- Optional: Chrome or Playwright Chromium for browser fallback capture
 
-## Install and Run (Clear Commands)
-
-From the project root:
-
-```bash
-npm install
-npm run dev
-```
-
-On first run, `npm run dev` will:
-
-- install frontend dependencies (if missing)
-- create `capture/.venv` and install Python requirements
-- start the React frontend and Python capture service
-
-On later runs, it will only re-install Python requirements if `capture/requirements.txt` has changed.
-
-Open the UI at:
+## Backend Setup
 
 ```bash
-http://localhost:5173
+cd backend
+pip install -r requirements.txt
+python main.py
 ```
 
-WebSocket stream runs on:
+The backend starts a WebSocket server on `ws://localhost:8765`.
 
-```bash
-ws://localhost:8765
-```
+Notes:
 
-If port 8765 is busy, the capture service auto-increments to 8766-8769. The frontend will automatically cycle through these ports.
+- On startup, the backend creates `data/rounds.csv` if it does not exist.
+- Startup retention loads the file, sorts by timestamp descending, keeps only the latest 3000 rows, and permanently removes older rows.
+- New crashed rounds are appended to the CSV without rewriting the whole file.
 
-### Manual (Optional)
-
-If you want to run each service directly:
+## Frontend Setup
 
 ```bash
 cd frontend
@@ -56,65 +71,66 @@ npm install
 npm run dev
 ```
 
-```bash
-cd capture
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe main.py
+The frontend starts on `http://localhost:5173`.
+
+## Runtime Model
+
+### Round State Engine
+
+- `WAITING`: countdown phase, no multiplier locked
+- `FLYING`: live multiplier rising, white text
+- `CRASHED`: final multiplier locked, red text
+
+The backend maintains and broadcasts:
+
+- `current_round`
+- `previous_round`
+- `next_round`
+- `state`
+- `multiplier`
+- `confidence`
+- `source`
+- `status`
+
+### Multi-Source Input
+
+- `ADB` is the primary source.
+- `Browser` capture is the automatic fallback.
+- If both fail, the backend emits:
+
+```json
+{ "status": "NO_SIGNAL" }
 ```
 
-## Data Flow
+### Storage Schema
 
-1. Python capture polls the device via ADB.
-2. Frames are cropped + preprocessed for OCR.
-3. OCR runs multi-pass recognition and confidence selection.
-4. Multipliers are smoothed and streamed via WebSocket.
-5. Frontend consumes the stream, computes analytics, stores history in IndexedDB, and renders the UI.
+`data/rounds.csv` uses:
 
-## Accuracy Tuning
-
-OCR reliability depends on ROI alignment and consistent UI scale. Adjust ROI settings in:
-
-`capture/src/utils/config.py`
-
-Use these tools to debug ROI and OCR:
-
-```bash
-python tools/grab_frame.py
-python tools/inspect_ocr.py
+```text
+timestamp,round_id,multiplier,state,source
 ```
 
-Enable debug overlay in `config.py`:
+## Probability Analytics
 
-```python
-debug_roi = True
-```
+The backend computes probability guidance from historical crashed rounds using:
 
-## AI Insights (Optional)
+- rolling median
+- volatility index
+- low streak detection
+- high streak detection
+- distribution buckets
 
-Paste your Groq API key into the UI input field. It is stored in localStorage under the key `groq_api_key`. AI insights are probabilistic only and are never presented as deterministic predictions.
+The output is labeled as probability only, not a deterministic prediction.
 
-If browser-side Groq requests are blocked by CORS, the capture service will automatically send AI insights via WebSocket when the key is set.
+## Verification Completed
 
-## ADB Authorization
+- Python modules compiled with `python -m compileall backend`
+- Frontend production build completed with `npm run build`
 
-If `adb devices` shows `unauthorized`, unlock the phone and accept the USB debugging prompt. If no prompt appears, revoke USB debugging authorizations in Developer Options, unplug/replug, then run:
+## Design Decisions
 
-```bash
-adb kill-server
-adb start-server
-adb devices
-```
-
-## Performance Notes
-
-- Poll interval is configurable (`poll_interval_ms`) in `config.py`.
-- Frontend history is capped at 300 points in memory.
-- Outliers are flagged and smoothed locally to reduce noise.
-
-## Deliverables Included
-
-- full codebase
-- local run instructions
-- OCR + analytics pipeline
-- production-oriented single-page UI
+- CSV is the primary storage format because it is append-friendly and easy to inspect operationally.
+- Retention is enforced at backend startup to keep runtime memory and frontend payloads bounded.
+- OCR uses ROI cropping, color masking, thresholding, and multiple OCR passes before selecting the highest-confidence result.
+- Source selection is centralized in the backend so the frontend always receives a single normalized live stream.
+- Probability analytics are computed server-side so the browser remains stateless and disposable.

@@ -5,14 +5,17 @@
 @layer base {
   :root {
     color-scheme: dark;
-    --background: 10 10 12;
-    --foreground: 226 232 240;
+    --background: 16 19 26;
+    --foreground: 244 239 228;
   }
 
   body {
-    @apply bg-[#0a0a0c] text-slate-200 antialiased overflow-hidden selection:bg-purple-500/30;
+    @apply bg-ink text-stone-100 antialiased selection:bg-accent/30;
     margin: 0;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: "Segoe UI", sans-serif;
+    background-image:
+      radial-gradient(circle at top left, rgba(255, 107, 53, 0.22), transparent 32%),
+      radial-gradient(circle at bottom right, rgba(28, 124, 84, 0.18), transparent 28%);
   }
 }
 
@@ -20,38 +23,9 @@
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
+
   .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-
-  /* Custom subtle scrollbar */
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 4px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-track {
-    @apply bg-transparent;
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    @apply bg-white/10 rounded-full hover:bg-white/20 transition-colors;
-  }
-}
-
-/* Animations */
-@keyframes pulse-subtle {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
-}
-
-.animate-pulse-subtle {
-  animation: pulse-subtle 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-/* Glow effects */
-.glow-purple {
-  box-shadow: 0 0 40px -10px rgba(168, 85, 247, 0.4);
-}
-
-.glow-red {
-  box-shadow: 0 0 40px -10px rgba(239, 68, 68, 0.4);
 }
